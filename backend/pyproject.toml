@@ -14,6 +14,7 @@ dependencies = [
     "numpy>=2.5.5",
     "opencv-python-headless>=5.0.0.93",
     "pydantic-settings>=2.16.3",
+    "python-multipart>=0.0.34",
     "rapidfuzz>=3.14.6",
     "scipy>=1.18.1",
     "sqlmodel>=0.0.50",
@@ -22,11 +23,23 @@ dependencies = [
 ]
 
 [project.scripts]
-signapp = "signapp:main"
+signapp = "signapp.main:run"
+signapp-pipeline = "signapp.pipeline.cli:app"
 
 [build-system]
 requires = ["uv_build>=0.12.9,<0.13.0"]
 build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 120
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
 
 [dependency-groups]
 dev = [

@@ -1,0 +1,22 @@
+{
+  "file": "mpfb.glb",
+  "license": "CC0 sample avatar from the TalkingHead project, built with MPFB.",
+  "body": {
+    "hips": "Hips",
+    "spine": "Spine",
+    "chest": "Spine1",
+    "upperChest": "Spine2",
+    "neck": "Neck",
+    "head": "Head",
+    "leftShoulder": "LeftShoulder",
+    "leftUpperArm": "LeftArm",
+    "leftForeArm": "LeftForeArm",
+    "leftHand": "LeftHand",
+    "rightShoulder": "RightShoulder",
+    "rightUpperArm": "RightArm",
+    "rightForeArm": "RightForeArm",
+    "rightHand": "RightHand"
+  },
+  "fingers": "LeftHandThumb1..3, Index, Middle, Ring, Pinky, and the matching RightHand bones",
+  "face": "52 ARKit blendshapes plus Oculus visemes on the Human mesh"
+}

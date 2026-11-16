@@ -1,2 +1,1 @@
-def main() -> None:
-    print("Hello from signapp!")
+"""Local Albanian Sign Language avatar prototype."""

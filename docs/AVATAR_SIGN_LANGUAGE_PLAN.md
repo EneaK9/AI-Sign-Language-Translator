@@ -5,6 +5,8 @@
 **Stack:** Python backend (FastAPI) + React/TypeScript frontend with a three.js avatar.
 **Date:** November 2026 · **Version 2**: updated with the project decisions of 13 Nov 2026
 
+**Prototype track (November 2026):** a free local version now lives in this repo so the pipeline can be tried before any partnership, capture kit, or paid avatar. `make api` and `make web` run a FastAPI backend and a React Three Fiber avatar. Alphabet motion is estimated from local videos with MediaPipe and stored as `lm-v1` clips. See the root `README.md`. This does not replace the product plan below: Deaf review, licensed data, and motion capture are still required before a real release.
+
 ---
 
 ## Table of contents
