@@ -129,9 +129,18 @@ dist
 .yarn/install-state.gz
 .pnp.*
 
+# Local sign videos, extracted clips, models and the SQLite database.
+# Alphabet videos stay on disk for private testing and are not redistributed.
+data/
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
 # Local Python virtual environments and generated runtime files
 backend/tts_env/
-sign-scraper/Lib/
-sign-scraper/Scripts/
-sign-scraper/pyvenv.cfg
 backend/uploads/
