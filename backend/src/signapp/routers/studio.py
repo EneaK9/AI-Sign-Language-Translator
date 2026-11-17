@@ -100,6 +100,8 @@ def _frames(raw_frames: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "pose": _points(raw.get("pose"), 33),
                 "lh": _points(raw.get("lh"), 21),
                 "rh": _points(raw.get("rh"), 21),
+                "lhi": _points(raw.get("lhi"), 21),
+                "rhi": _points(raw.get("rhi"), 21),
                 "face": _face(raw.get("face")),
                 "head": [float(head[0]), float(head[1]), float(head[2])],
             }

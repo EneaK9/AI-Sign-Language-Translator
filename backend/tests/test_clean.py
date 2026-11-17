@@ -43,3 +43,15 @@ def test_short_gap_is_filled() -> None:
     cleaned = clean_clip({"fps": 30, "source": "webcam", "frames": frames})
     assert cleaned["frames"][2]["rh"] is not None
     assert cleaned["meta"]["source"] == "webcam"
+
+
+def test_image_hand_landmarks_are_kept_and_gaps_filled() -> None:
+    frames = []
+    for index in range(12):
+        image = [[0.1 * index, 0.2, 0.0] for _ in range(21)]
+        frames.append({"pose": _pose(0.0), "lh": None, "rh": _hand(), "rhi": image, "face": {}, "head": [0, 0, 0]})
+    frames[4]["rhi"] = None
+    cleaned = clean_clip({"fps": 25, "source": "video", "frames": frames})
+    assert all(frame["rhi"] is not None for frame in cleaned["frames"])
+    assert cleaned["frames"][4]["rhi"][0][0] > cleaned["frames"][3]["rhi"][0][0]
+    assert cleaned["frames"][0]["lhi"] is None

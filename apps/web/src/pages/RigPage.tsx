@@ -7,6 +7,7 @@ import { useStage } from "../stage/store";
 
 export function RigPage() {
   const handle = useStage((state) => state.handle);
+  const player = useStage((state) => state.player);
   const bendSign = useStage((state) => state.bendSign);
   const setBendSign = useStage((state) => state.setBendSign);
   const controls = useControls({
@@ -16,8 +17,17 @@ export function RigPage() {
   });
 
   useEffect(() => {
+    if (!player) return;
+    player.stop();
+    player.setExternal(true);
+    return () => {
+      player.setExternal(false);
+    };
+  }, [player]);
+
+  useEffect(() => {
     if (!handle) return;
-    handle.resetPose();
+    handle.neutralPose();
     const index = handle.bones.RightHandIndex1;
     if (index) {
       const bend = new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), controls.curl);

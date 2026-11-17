@@ -1,8 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
-import { NodeIO, type Node } from "@gltf-transform/core";
-import { Bone, Object3D, Quaternion, Vector3 } from "three";
+import { Quaternion, Vector3 } from "three";
 import { beforeAll, describe, expect, it } from "vitest";
 import { bindAvatar } from "../avatar/bind";
+import { loadSkeleton } from "../test/skeleton";
 import type { AvatarHandle } from "../avatar/types";
 import { avatarPalm } from "./calibrate";
 import { FINGERS, dot, fingerBoneName, palmOf, segment, toPalm } from "./hands";
@@ -10,29 +10,7 @@ import { solveFrame, syntheticHand } from "./solve";
 import { toAvatarSpace } from "./space";
 import type { LmClip, Vec3 } from "./types";
 
-const AVATAR = new URL("../../public/avatars/mpfb.glb", import.meta.url);
 const CLIPS = new URL("../../../../data/clips/gjshsh/letter/", import.meta.url);
-
-async function loadSkeleton(): Promise<Object3D> {
-  const document = await new NodeIO().read(AVATAR.pathname);
-  const joints = new Set(document.getRoot().listSkins().flatMap((skin) => skin.listJoints()));
-  const made = new Map<Node, Object3D>();
-  const build = (node: Node): Object3D => {
-    const object = joints.has(node) ? new Bone() : new Object3D();
-    object.name = node.getName();
-    object.position.fromArray(node.getTranslation());
-    object.quaternion.fromArray(node.getRotation());
-    object.scale.fromArray(node.getScale());
-    made.set(node, object);
-    for (const child of node.listChildren()) object.add(build(child));
-    return object;
-  };
-  const root = new Object3D();
-  for (const scene of document.getRoot().listScenes()) {
-    for (const node of scene.listChildren()) root.add(build(node));
-  }
-  return root;
-}
 
 function position(avatar: AvatarHandle, name: string): Vec3 {
   const point = avatar.bones[name].getWorldPosition(new Vector3());
@@ -72,11 +50,11 @@ function fingerError(avatar: AvatarHandle, side: "Left" | "Right", landmarks: Ve
 function tipTowardPalm(avatar: AvatarHandle, side: "Left" | "Right", finger: string): number {
   const palm = avatarPalm(avatar.bones, side);
   if (!palm) throw new Error("no palm");
+  // The middle-finger joint (base of the last bone): in a fist it sits well toward the palm. The fingertip itself
+  // curls back to the palm in a tight fist, so its offset is not a reliable measure.
   const base = position(avatar, `${side}Hand${finger}1`);
-  const last = position(avatar, `${side}Hand${finger}3`);
-  const tip = boneDirection(avatar, `${side}Hand${finger}3`);
-  const end: Vec3 = [last[0] + tip[0] * 0.02, last[1] + tip[1] * 0.02, last[2] + tip[2] * 0.02];
-  const offset: Vec3 = [end[0] - base[0], end[1] - base[1], end[2] - base[2]];
+  const joint = position(avatar, `${side}Hand${finger}3`);
+  const offset: Vec3 = [joint[0] - base[0], joint[1] - base[1], joint[2] - base[2]];
   return dot(offset, palm.normal) * (side === "Right" ? 1 : -1);
 }
 
@@ -106,8 +84,10 @@ describe("hand retargeting on the real avatar skeleton", () => {
 
   it("matches the tracked finger directions of the alphabet clips", () => {
     if (!existsSync(CLIPS.pathname)) return;
-    const solve = { arms: true, hands: true, face: false, bendSign: 1 };
+    // Fidelity to the raw world landmarks, with the deliberate corrections (deepening, palm fix) switched off.
+    const solve = { arms: true, hands: true, face: false, bendSign: 1, handSource: "world" as const, deepen: false, refinePalm: false };
     const report: string[] = [];
+    const errors: number[] = [];
     for (const letter of ["a", "b", "c", "e", "i", "l", "o", "v", "y"]) {
       const file = new URL(`${letter}.json`, CLIPS);
       if (!existsSync(file.pathname)) continue;
@@ -117,8 +97,9 @@ describe("hand retargeting on the real avatar skeleton", () => {
       solveFrame(avatar, frame, { ...solve, dominant: "right" });
       const error = fingerError(avatar, "Right", frame.rh as Vec3[]);
       report.push(`${letter}:${error.toFixed(1)}°`);
-      expect(error).toBeLessThan(12);
+      errors.push(error);
     }
     console.info(`finger error per letter ${report.join(" ")}`);
+    for (const error of errors) expect(error).toBeLessThan(12);
   });
 });

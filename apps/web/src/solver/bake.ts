@@ -1,58 +1,53 @@
-import { AnimationClip, NumberKeyframeTrack, QuaternionKeyframeTrack, type Object3D } from "three";
 import type { AvatarHandle } from "../avatar/types";
+import { channelsOf, smoothQuaternions, smoothSeries, type SignMotion } from "../player/motion";
+import { prepareFrames } from "./prepare";
 import { solveFrame } from "./solve";
 import type { LmClip, SolveOptions } from "./types";
 import { DEFAULT_SOLVE } from "./types";
 
-function objectPath(root: Object3D, object: Object3D): string {
-  const parts: string[] = [];
-  let current: Object3D | null = object;
-  while (current && current !== root) {
-    parts.push(current.name || current.uuid);
-    current = current.parent;
-  }
-  return parts.reverse().join("/");
+/**
+ * Smoothing per bone, in frames (sigma). Fingers keep crisp shapes; the big joints and the head get more,
+ * because their jitter reads as tremor and their real motion is slow.
+ */
+function sigmaFor(key: string): number {
+  if (/Hand(Thumb|Index|Middle|Ring|Pinky)\d$/.test(key)) return 0.9;
+  if (key === "leftHand" || key === "rightHand") return 1.1;
+  if (/(UpperArm|ForeArm|Shoulder)$/.test(key)) return 1.4;
+  if (key === "head" || key === "neck") return 1.8;
+  return 0;
 }
 
-export function bakeClip(avatar: AvatarHandle, clip: LmClip, options: SolveOptions = DEFAULT_SOLVE): AnimationClip {
+const MORPH_SIGMA = 1.2;
+
+export function bakeClip(avatar: AvatarHandle, clip: LmClip, options: SolveOptions = DEFAULT_SOLVE): SignMotion {
   const start = Math.max(0, Math.min(clip.meta.trimStart, clip.frames.length - 1));
   const end = Math.max(start + 1, Math.min(clip.meta.trimEnd || clip.frames.length, clip.frames.length));
-  const times: number[] = [];
-  const boneSamples = new Map<string, number[]>();
-  const morphSamples = new Map<string, number[]>();
+  const frames = prepareFrames(clip.frames);
+  const { bones, morphs } = channelsOf(avatar);
+  const count = end - start;
+  const quats = new Float32Array(count * bones.length * 4);
+  const morphValues = morphs.map(() => new Float32Array(count));
   for (let index = start; index < end; index += 1) {
-    times.push((index - start) / clip.fps);
-    solveFrame(avatar, clip.frames[index], { dominant: clip.meta.dominant, ...options });
-    for (const bone of Object.values(avatar.bones)) {
-      const sample = boneSamples.get(bone.uuid) ?? [];
-      sample.push(bone.quaternion.x, bone.quaternion.y, bone.quaternion.z, bone.quaternion.w);
-      boneSamples.set(bone.uuid, sample);
-    }
-    for (const mesh of avatar.meshes) {
-      mesh.morphTargetInfluences?.forEach((value, influence) => {
-        const key = `${mesh.uuid}:${influence}`;
-        const sample = morphSamples.get(key) ?? [];
-        sample.push(value);
-        morphSamples.set(key, sample);
-      });
-    }
-  }
-  avatar.resetPose();
-  const tracks = Object.values(avatar.bones).map(
-    (bone) => new QuaternionKeyframeTrack(`${objectPath(avatar.root, bone)}.quaternion`, times, boneSamples.get(bone.uuid) ?? []),
-  );
-  for (const mesh of avatar.meshes) {
-    const path = objectPath(avatar.root, mesh);
-    mesh.morphTargetInfluences?.forEach((_, influence) => {
-      tracks.push(
-        new NumberKeyframeTrack(
-          `${path}.morphTargetInfluences[${influence}]`,
-          times,
-          morphSamples.get(`${mesh.uuid}:${influence}`) ?? [],
-        ),
-      );
+    const frame = index - start;
+    solveFrame(avatar, frames[index], { dominant: clip.meta.dominant, ...options });
+    bones.forEach((bone, slot) => bone.quaternion.toArray(quats, (frame * bones.length + slot) * 4));
+    morphs.forEach((channel, slot) => {
+      morphValues[slot][frame] = channel.mesh.morphTargetInfluences?.[channel.index] ?? 0;
     });
   }
-  const duration = times.length ? times[times.length - 1] : 0;
-  return new AnimationClip(`sign-${start}-${end}`, Math.max(duration, 1 / clip.fps), tracks);
+  avatar.resetPose();
+  const keys = Object.keys(avatar.bones);
+  keys.forEach((key, slot) => smoothQuaternions(quats, count, bones.length, slot, sigmaFor(key)));
+  const moving: SignMotion["morphs"] = [];
+  morphValues.forEach((values, channel) => {
+    if (values.some((value) => value > 1e-3)) moving.push({ channel, values: smoothSeries(values, MORPH_SIGMA) });
+  });
+  return {
+    name: `sign-${start}-${end}`,
+    fps: clip.fps,
+    frames: count,
+    duration: Math.max((count - 1) / clip.fps, 1 / clip.fps),
+    quats,
+    morphs: moving,
+  };
 }

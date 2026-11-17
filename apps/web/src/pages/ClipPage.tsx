@@ -20,6 +20,8 @@ export function ClipPage() {
     api.alphabet().then(setLetters).catch((error: Error) => setMessage(error.message));
   }, []);
 
+  useEffect(() => () => player?.stop(), [player]);
+
   async function open(letter: AlphabetItem) {
     setCurrent(letter);
     setMessage("");

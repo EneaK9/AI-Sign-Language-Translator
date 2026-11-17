@@ -39,16 +39,36 @@ export class OneEuro {
   }
 }
 
+/**
+ * Tuning per signal, by its units. Landmarks are in metres, so `beta` must be large enough that a hand moving
+ * at 0.5 m/s opens the filter to several hertz; blendshapes and angles move in different ranges.
+ */
+const TUNING: Record<string, [number, number]> = {
+  pose: [1.0, 6],
+  lh: [1.6, 14],
+  rh: [1.6, 14],
+  lhi: [1.6, 14],
+  rhi: [1.6, 14],
+  face: [1.5, 0.6],
+  head: [1.0, 0.8],
+};
+
 export class FrameFilter {
   private filters = new Map<string, OneEuro>();
 
   private sample(key: string, value: number, time: number): number {
     let filter = this.filters.get(key);
     if (!filter) {
-      filter = new OneEuro();
+      const [minCutoff, beta] = TUNING[key.slice(0, key.indexOf(":"))] ?? [1.4, 0.6];
+      filter = new OneEuro(minCutoff, beta);
       this.filters.set(key, filter);
     }
     return filter.next(value, time);
+  }
+
+  /** Forget one stream, so a hand that comes back after a gap starts fresh instead of sliding in from old data. */
+  reset(prefix: string): void {
+    for (const key of [...this.filters.keys()]) if (key.startsWith(`${prefix}:`)) this.filters.delete(key);
   }
 
   private points(key: string, points: Vec3[] | null, time: number): Vec3[] | null {
@@ -67,6 +87,8 @@ export class FrameFilter {
       pose: this.points("pose", frame.pose, time),
       lh: this.points("lh", frame.lh, time),
       rh: this.points("rh", frame.rh, time),
+      lhi: this.points("lhi", frame.lhi ?? null, time),
+      rhi: this.points("rhi", frame.rhi ?? null, time),
       face,
       head: (frame.head.length ? frame.head : [0, 0, 0]).map((value, index) => this.sample(`head:${index}`, value, time)),
     };

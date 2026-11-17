@@ -36,6 +36,18 @@ def _hand(landmarks: list[Any] | None) -> list[list[float]] | None:
     return [_xyz(point) for point in landmarks]
 
 
+def _hand_image(landmarks: list[Any] | None, width: int, height: int) -> list[list[float]] | None:
+    """Hand landmarks in image space, in units of image width so x, y and z share one scale.
+
+    MediaPipe's image landmarks track finger curl far better than its world landmarks (the world model
+    flattens fingers that fold toward the camera), so the avatar solver prefers them for handshapes.
+    """
+    if not landmarks:
+        return None
+    aspect = height / width if width else 1.0
+    return [[round(float(p.x), 5), round(float(p.y) * aspect, 5), round(float(p.z), 5)] for p in landmarks]
+
+
 def _head(pose: list[list[float]] | None) -> list[float]:
     if not pose or len(pose) < 13:
         return [0.0, 0.0, 0.0]
@@ -80,6 +92,7 @@ def extract_video(path: Path, settings: Settings, source: str = "video") -> dict
             ok, frame = capture.read()
             if not ok:
                 break
+            height, width = frame.shape[:2]
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
             timestamp = int(index * 1000 / fps)
@@ -97,6 +110,8 @@ def extract_video(path: Path, settings: Settings, source: str = "video") -> dict
                     "pose": pose,
                     "lh": _hand(result.left_hand_world_landmarks),
                     "rh": _hand(result.right_hand_world_landmarks),
+                    "lhi": _hand_image(result.left_hand_landmarks, width, height),
+                    "rhi": _hand_image(result.right_hand_landmarks, width, height),
                     "face": face,
                     "head": _head(pose),
                 }

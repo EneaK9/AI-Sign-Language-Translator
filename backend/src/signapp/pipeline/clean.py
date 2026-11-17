@@ -12,6 +12,8 @@ def _copy_frames(frames: list[Frame]) -> list[Frame]:
             "pose": _copy_points(frame.get("pose")),
             "lh": _copy_points(frame.get("lh")),
             "rh": _copy_points(frame.get("rh")),
+            "lhi": _copy_points(frame.get("lhi")),
+            "rhi": _copy_points(frame.get("rhi")),
             "face": dict(frame.get("face") or {}),
             "head": [float(value) for value in (frame.get("head") or [0.0, 0.0, 0.0])],
         }
@@ -159,7 +161,7 @@ def _hold(frames: list[Frame], key: str) -> None:
 
 def clean_clip(raw: dict[str, Any]) -> dict[str, Any]:
     frames = _copy_frames(list(raw.get("frames") or []))
-    for key in ("pose", "lh", "rh"):
+    for key in ("pose", "lh", "rh", "lhi", "rhi"):
         _interpolate(frames, key)
         _smooth(frames, key)
     dominant = dominant_hand(frames)
@@ -167,7 +169,7 @@ def clean_clip(raw: dict[str, Any]) -> dict[str, Any]:
     start, end = _hand_span(frames, hand_key) or _trim(frames, dominant)
     detected = sum(1 for frame in frames if frame.get(hand_key))
     quality = detected / len(frames) if frames else 0.0
-    for key in ("pose", "lh", "rh"):
+    for key in ("pose", "lh", "rh", "lhi", "rhi"):
         _hold(frames, key)
     return {
         "format": "lm-v1",

@@ -60,7 +60,7 @@ export function RecordPage() {
         return;
       }
       const result = landmarker.detectForVideo(video, performance.now());
-      frames.current.push(resultToFrame(result));
+      frames.current.push(resultToFrame(result, video.videoWidth ? video.videoHeight / video.videoWidth : 0.75));
       window.setTimeout(capture, 50);
     };
     window.setTimeout(capture, 50);
